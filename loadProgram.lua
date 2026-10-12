@@ -106,7 +106,38 @@ local function autodetectCodelSize(image_data)
 end
 
 ---@param image_data love.ImageData
+local function loadProgramImageToTable(image_data, codel_size)
+    local w, h = image_data:getDimensions()
+    local pw, ph = w / codel_size, h / codel_size
+    local half_offset = math.floor(codel_size / 2)
+
+    local program_table = {}
+
+    for y = 1, ph do
+        program_table[y] = {}
+        for x = 1, pw do
+            for i = 1, #PALETTE do
+                local sx = (x - 1) * codel_size + half_offset
+                local sy = (y - 1) * codel_size + half_offset
+                local sr, sg, sb = image_data:getPixel(sx, sy)
+                local color = PALETTE[i]
+                if math.abs(sr - color[1]) < 0.01 and
+                    math.abs(sg - color[2]) < 0.01 and
+                    math.abs(sb - color[3]) < 0.01 then
+                    program_table[y][x] = i
+                    break
+                end
+            end
+        end
+    end
+
+    return program_table
+end
+
+---@param image_data love.ImageData
 return function(image_data)
     image_data:mapPixel(normalizeImageColors)
     local codel_size = autodetectCodelSize(image_data)
+    local program_table = loadProgramImageToTable(image_data, codel_size)
+    return program_table
 end
