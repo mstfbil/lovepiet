@@ -2,6 +2,13 @@ local utf8 = require("utf8")
 
 local function noop() end
 
+local DIR_COMPONENTS = {
+    { x = 0,  y = -1 },
+    { x = 0,  y = 1 },
+    { x = -1, y = 0 },
+    { x = 1,  y = 0 }
+}
+
 local DIRS = {
     RIGHT = 1,
     DOWN = 2,
@@ -173,13 +180,77 @@ local DELTA_COMMAND_MAP = {
     { Runtime.pop,  Runtime.multiply, Runtime.nnot,   Runtime.switch,  Runtime.in_number, Runtime.out_char }
 }
 
+function Runtime:getBlockSizeAndBoundBox(x, y)
+    local program = self.program_table
+    local h = #program
+    if h == 0 then return end
+    local w = #program[1]
+
+    local target = program[y] and program[y][x]
+    if not target then
+        return 0, { x = x, y = y, w = 0, h = 0 }
+    end
+
+    local min_x, max_x = x, x
+    local min_y, max_y = y, y
+    local fill = 1
+
+    local queue = { { x = x, y = y } }
+    local visited = {}
+    local head = 1
+
+    visited[x .. "," .. y] = true
+
+    while head <= #queue do
+        local current = queue[head]
+        head = head + 1
+
+        if current.x < min_x then
+            min_x = current.x
+        end
+        if current.x > max_x then
+            max_x = current.x
+        end
+        if current.y < min_y then
+            min_y = current.y
+        end
+        if current.y > max_y then
+            max_y = current.y
+        end
+
+        for i = 1, 4 do
+            local nx = current.x + DIR_COMPONENTS[i].x
+            local ny = current.y + DIR_COMPONENTS[i].y
+
+            if nx >= 1 and nx <= w and ny >= 1 and ny <= h then
+                local key = nx .. "," .. ny
+
+                if not visited[key] and program[ny][nx] == target then
+                    visited[key] = true
+                    fill = fill + 1
+
+                    table.insert(queue, { x = nx, y = ny })
+                end
+            end
+        end
+    end
+
+    return fill, {
+        x = min_x,
+        y = min_y,
+        w = max_x - min_x + 1,
+        h = max_y - min_y + 1
+    }
+end
+
 ---@param program_table number[][]
 function Runtime:interpretProgram(program_table)
     -- wip
 end
 
-return function() -- new Runtime
+return function(program_table) -- new Runtime
     return setmetatable({
+        program_table = program_table or {},
         stack = {},
         pointer = { 0, 0 },
     }, Runtime)
