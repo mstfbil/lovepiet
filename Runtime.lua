@@ -20,7 +20,15 @@ local DIR = {
 local Runtime = {
     dp = DIR.RIGHT,
     cc = DIR.LEFT,
-    retries = 0
+    retries = 0,
+    last_color = nil,
+    last_block_size = nil,
+
+    input_s = "",
+    out_f = function(str)
+        io.write(str)
+        io.flush()
+    end
 }
 Runtime.__index = Runtime
 
@@ -32,6 +40,7 @@ function Runtime:restoreStackItems(...)
 end
 
 function Runtime:push(v)
+    v = v or self.last_block_size
     table.insert(self.stack, v)
 end
 
@@ -154,27 +163,27 @@ function Runtime:roll()
     end
 end
 
-function Runtime:in_char(input)
-    self:push(utf8.codepoint(input))
+function Runtime:in_char()
+    self:push(utf8.codepoint(self.input_s))
 end
 
-function Runtime:in_number(input)
-    self:push(input)
+function Runtime:in_number()
+    self:push(self.input_s)
 end
 
-function Runtime:out_char(out_f)
+function Runtime:out_char()
     local n = self:pop()
     if not n then return end
-    out_f(utf8.char(n))
+    self.out_f(utf8.char(n))
 end
 
-function Runtime:out_number(out_f)
+function Runtime:out_number()
     local n = self:pop()
     if not n then return end
-    out_f(n)
+    self.out_f(n)
 end
 
--- [delta lightness][delta hue]f
+-- [delta lightness][delta hue]
 local DELTA_COMMAND_MAP = {
     { noop,         Runtime.add,      Runtime.divide, Runtime.greater, Runtime.duplicate, Runtime.in_char },
     { Runtime.push, Runtime.subtract, Runtime.mod,    Runtime.pointer, Runtime.roll,      Runtime.out_number },
@@ -253,6 +262,16 @@ function Runtime:isCodelAccessible(x, y)
     end
 end
 
+function Runtime:dispatchCommand(color, size)
+    if not (self.last_color and self.last_block_size) then return end
+
+    local d_hue = (color.hue - self.last_color.hue) % 6
+    local d_lightness = (color.lightness - self.last_color.lightness) % 3
+
+    local command = DELTA_COMMAND_MAP[d_lightness + 1][d_hue + 1]
+    command(self)
+end
+
 function Runtime:stepProgram()
     if self.retries >= 8 then
         return false
@@ -323,6 +342,9 @@ function Runtime:stepProgram()
     exit_codel.y = exit_codel.y + DIR_COMPONENTS[self.dp].y
 
     if self:isCodelAccessible(exit_codel.x, exit_codel.y) then
+        self:dispatchCommand(PALETTE[block_value], block_size)
+        self.last_color = PALETTE[block_value]
+        self.last_block_size = block_size
         self.retries = 0
         self.cursor = exit_codel
     else

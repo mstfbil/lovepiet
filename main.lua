@@ -3,14 +3,27 @@ local loadProgram = require("loadProgram")
 local Runtime = require("Runtime")
 
 local CODEL_SIZE = 50
+local STEP_DT = 0.2
 
 local runtime
+local step_timer = 0
 
 function love.load()
     local program_image_data = love.image.newImageData("example.png")
     runtime = Runtime(loadProgram(program_image_data))
 
     love.window.setMode(CODEL_SIZE * #runtime.program_table, CODEL_SIZE * #runtime.program_table)
+end
+
+function love.update(dt)
+    step_timer = step_timer + dt
+    if step_timer >= STEP_DT then
+        step_timer = step_timer - STEP_DT
+        local res = runtime:stepProgram()
+        if not res then
+            love.event.quit()
+        end
+    end
 end
 
 function love.draw()
@@ -26,10 +39,4 @@ function love.draw()
     love.graphics.setColor(0, 0, 0)
     love.graphics.circle("fill", (runtime.cursor.x - 1) * CODEL_SIZE + CODEL_SIZE / 2,
         (runtime.cursor.y - 1) * CODEL_SIZE + CODEL_SIZE / 2, CODEL_SIZE * 0.2)
-end
-
-function love.keypressed(key)
-    if key == "space" then
-        runtime:stepProgram()
-    end
 end
