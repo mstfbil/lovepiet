@@ -1,26 +1,4 @@
-local PALETTE = {
-    { 1,     0.753, 0.753 }, -- light red
-    { 1,     1,     0.753 }, -- light yellow
-    { 0.753, 1,     0.753 }, -- light green
-    { 0.753, 1,     1 },     -- light cyan
-    { 0.753, 0.753, 1 },     -- light blue
-    { 1,     0.753, 1 },     -- light magenta
-    { 1,     0,     0 },     -- red
-    { 1,     1,     0 },     -- yellow
-    { 0,     1,     0 },     -- green
-    { 0,     1,     1 },     -- cyan
-    { 0,     0,     1 },     -- blue
-    { 1,     0,     1 },     -- magenta
-    { 0.753, 0,     0 },     -- dark red
-    { 0.753, 0.753, 0 },     -- dark yellow
-    { 0,     0.753, 0 },     -- dark green
-    { 0,     0.753, 0.753 }, -- dark cyan
-    { 0,     0,     0.753 }, -- dark blue
-    { 0.753, 0,     0.753 }, -- dark magenta
-
-    { 1,     1,     1 },     -- white
-    { 0,     0,     0 }      -- black
-}
+local PALETTE = require("PALETTE")
 
 local function gcdTable(t)
     local result = t[1]
@@ -38,11 +16,11 @@ local function gcdTable(t)
 end
 
 local function normalizeImageColors(_, _, r, g, b)
-    local nearest_color = PALETTE[1]
+    local nearest_color = PALETTE[1].color
     local min_dist_sq   = math.huge
 
     for i = 1, #PALETTE do
-        local color = PALETTE[i]
+        local color = PALETTE[i].color
         local dr = r - color[1]
         local dg = g - color[2]
         local db = b - color[3]
@@ -120,7 +98,7 @@ local function loadProgramImageToTable(image_data, codel_size)
                 local sx = (x - 1) * codel_size + half_offset
                 local sy = (y - 1) * codel_size + half_offset
                 local sr, sg, sb = image_data:getPixel(sx, sy)
-                local color = PALETTE[i]
+                local color = PALETTE[i].color
                 if math.abs(sr - color[1]) < 0.01 and
                     math.abs(sg - color[2]) < 0.01 and
                     math.abs(sb - color[3]) < 0.01 then

@@ -1,12 +1,13 @@
 local utf8 = require("utf8")
+local PALETTE = require("PALETTE")
 
 local function noop() end
 
 local DIR_COMPONENTS = {
     { x = 1,  y = 0 },
-    { x = 0,  y = -1 },
+    { x = 0,  y = 1 },
     { x = -1, y = 0 },
-    { x = 0,  y = 1 }
+    { x = 0,  y = -1 }
 }
 
 local DIR = {
@@ -243,9 +244,28 @@ function Runtime:getBlockSizeAndBoundBox(x, y)
     }
 end
 
+function Runtime:isCodelAccessible(x, y)
+    if not self.program_table[y] then
+        return false
+    else
+        return x >= 1 and x <= #self.program_table[y] and y >= 1 and y <= #self.program_table and
+            self.program_table[y][x] ~= PALETTE["black"].index
+    end
+end
+
 function Runtime:stepProgram()
-    local block_value = self.program_table[self.cursor.y][self.cursor.x]
-    local block_size, block_bounds = self:getBlockSizeAndBoundBox(self.cursor.x, self.cursor.y)
+    if self.retries >= 8 then
+        return false
+    end
+
+    local program = self.program_table
+    local cursor = self.cursor
+    local h = #program
+    if h == 0 then return end
+    local w = #program[1]
+
+    local block_value = program[cursor.y][cursor.x]
+    local block_size, block_bounds = self:getBlockSizeAndBoundBox(cursor.x, cursor.y)
     if not block_size or not block_bounds then
         error("error getting block bounds")
     end
@@ -262,7 +282,7 @@ function Runtime:stepProgram()
     if self.dp == DIR.RIGHT then
         local x = right_x
         for y = block_bounds.y, bottom_y do
-            local codel = self.program_table[y][x]
+            local codel = program[y][x]
             if codel == block_value then
                 updateMostBounds(x, y)
             end
@@ -272,7 +292,7 @@ function Runtime:stepProgram()
     if self.dp == DIR.DOWN then
         local y = bottom_y
         for x = block_bounds.x, right_x do
-            local codel = self.program_table[y][x]
+            local codel = program[y][x]
             if codel == block_value then
                 updateMostBounds(x, y)
             end
@@ -282,7 +302,7 @@ function Runtime:stepProgram()
     if self.dp == DIR.LEFT then
         local x = block_bounds.x
         for y = block_bounds.y, bottom_y do
-            local codel = self.program_table[y][x]
+            local codel = program[y][x]
             if codel == block_value then
                 updateMostBounds(x, y)
             end
@@ -292,7 +312,7 @@ function Runtime:stepProgram()
     if self.dp == DIR.UP then
         local y = block_bounds.y
         for x = block_bounds.x, right_x do
-            local codel = self.program_table[y][x]
+            local codel = program[y][x]
             if codel == block_value then
                 updateMostBounds(x, y)
             end
@@ -301,6 +321,20 @@ function Runtime:stepProgram()
     end
     exit_codel.x = exit_codel.x + DIR_COMPONENTS[self.dp].x
     exit_codel.y = exit_codel.y + DIR_COMPONENTS[self.dp].y
+
+    if self:isCodelAccessible(exit_codel.x, exit_codel.y) then
+        self.retries = 0
+        self.cursor = exit_codel
+    else
+        if self.retries % 2 == 0 then
+            self.cc = (self.cc == DIR.LEFT) and DIR.RIGHT or DIR.LEFT
+        else
+            self.dp = (self.dp % 4) + 1
+        end
+        self.retries = self.retries + 1
+    end
+
+    return true
 end
 
 return function(program_table) -- new Runtime
