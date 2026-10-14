@@ -6,4 +6,5 @@ local runtime
 function love.load()
     local program_image_data = love.image.newImageData("example.png")
     runtime = Runtime(loadProgram(program_image_data))
+    runtime:stepProgram()
 end

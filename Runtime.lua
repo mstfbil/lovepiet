@@ -3,13 +3,13 @@ local utf8 = require("utf8")
 local function noop() end
 
 local DIR_COMPONENTS = {
+    { x = 1,  y = 0 },
     { x = 0,  y = -1 },
-    { x = 0,  y = 1 },
     { x = -1, y = 0 },
-    { x = 1,  y = 0 }
+    { x = 0,  y = 1 }
 }
 
-local DIRS = {
+local DIR = {
     RIGHT = 1,
     DOWN = 2,
     LEFT = 3,
@@ -17,8 +17,8 @@ local DIRS = {
 }
 
 local Runtime = {
-    dp = DIRS.RIGHT,
-    cc = DIRS.LEFT,
+    dp = DIR.RIGHT,
+    cc = DIR.LEFT,
     retries = 0
 }
 Runtime.__index = Runtime
@@ -117,7 +117,7 @@ function Runtime:switch()
     if not n then return end
 
     if math.abs(n) % 2 == 1 then
-        self.cc = (self.cc == DIRS.LEFT) and DIRS.RIGHT or DIRS.LEFT
+        self.cc = (self.cc == DIR.LEFT) and DIR.RIGHT or DIR.LEFT
     end
 end
 
@@ -243,15 +243,70 @@ function Runtime:getBlockSizeAndBoundBox(x, y)
     }
 end
 
----@param program_table number[][]
-function Runtime:interpretProgram(program_table)
-    -- wip
+function Runtime:stepProgram()
+    local block_value = self.program_table[self.cursor.y][self.cursor.x]
+    local block_size, block_bounds = self:getBlockSizeAndBoundBox(self.cursor.x, self.cursor.y)
+    if not block_size or not block_bounds then
+        error("error getting block bounds")
+    end
+
+    local leftmost, rightmost, exit_codel
+    local function updateMostBounds(x, y)
+        if not leftmost then
+            leftmost = { x = x, y = y }
+        end
+        rightmost = { x = x, y = y }
+    end
+
+    local bottom_y, right_x = block_bounds.y + block_bounds.h - 1, block_bounds.x + block_bounds.w - 1
+    if self.dp == DIR.RIGHT then
+        local x = right_x
+        for y = block_bounds.y, bottom_y do
+            local codel = self.program_table[y][x]
+            if codel == block_value then
+                updateMostBounds(x, y)
+            end
+        end
+        exit_codel = (self.cc == DIR.LEFT) and leftmost or rightmost
+    end
+    if self.dp == DIR.DOWN then
+        local y = bottom_y
+        for x = block_bounds.x, right_x do
+            local codel = self.program_table[y][x]
+            if codel == block_value then
+                updateMostBounds(x, y)
+            end
+        end
+        exit_codel = (self.cc == DIR.LEFT) and rightmost or leftmost
+    end
+    if self.dp == DIR.LEFT then
+        local x = block_bounds.x
+        for y = block_bounds.y, bottom_y do
+            local codel = self.program_table[y][x]
+            if codel == block_value then
+                updateMostBounds(x, y)
+            end
+        end
+        exit_codel = (self.cc == DIR.LEFT) and rightmost or leftmost
+    end
+    if self.dp == DIR.UP then
+        local y = block_bounds.y
+        for x = block_bounds.x, right_x do
+            local codel = self.program_table[y][x]
+            if codel == block_value then
+                updateMostBounds(x, y)
+            end
+        end
+        exit_codel = (self.cc == DIR.LEFT) and leftmost or rightmost
+    end
+    exit_codel.x = exit_codel.x + DIR_COMPONENTS[self.dp].x
+    exit_codel.y = exit_codel.y + DIR_COMPONENTS[self.dp].y
 end
 
 return function(program_table) -- new Runtime
     return setmetatable({
         program_table = program_table or {},
         stack = {},
-        pointer = { 0, 0 },
+        cursor = { x = 1, y = 1 },
     }, Runtime)
 end
